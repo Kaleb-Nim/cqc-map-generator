@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI, { toFile } from 'openai';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { pickValues, buildPrompt, formatHHMM, formatClock, formatPace } from '@/lib/generate';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
+
+const WAVESPEED_ENDPOINT = 'https://api.wavespeed.ai/api/v3/openai/gpt-image-2/edit';
+
+type WaveSpeedResponse = {
+  code: number;
+  message: string;
+  data?: {
+    id: string;
+    status: 'created' | 'processing' | 'completed' | 'failed';
+    outputs?: string[];
+    error?: string;
+  };
+};
 
 export async function POST(req: NextRequest) {
   const password = req.headers.get('x-generate-password') ?? '';
@@ -17,40 +27,82 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.WAVESPEED_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: 'Server misconfigured: OPENAI_API_KEY not set' }, { status: 500 });
+    return NextResponse.json({ error: 'Server misconfigured: WAVESPEED_API_KEY not set' }, { status: 500 });
   }
 
   const values = pickValues();
   const prompt = buildPrompt(values);
 
-  const baseImagePath = join(process.cwd(), 'public', 'base.jpg');
-  const baseImageBytes = readFileSync(baseImagePath);
-
-  const client = new OpenAI({ apiKey });
+  // WaveSpeed needs a publicly accessible image URL.
+  // public/base.jpg is served at <origin>/base.jpg by Next.js.
+  const origin = req.nextUrl.origin;
+  const baseImageUrl = `${origin}/base.jpg`;
 
   let pngBuf: Buffer;
   try {
-    const imageFile = await toFile(new Blob([new Uint8Array(baseImageBytes)]), 'base.jpg', { type: 'image/jpeg' });
-    const response = await client.images.edit({
-      model: 'gpt-image-2' as never,
-      image: imageFile,
-      prompt,
-      size: '1024x1536',
-      quality: 'high' as never,
-      input_fidelity: 'high' as never,
-      output_format: 'png' as never,
-      n: 1,
+    const wsResponse = await fetch(WAVESPEED_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        images: [baseImageUrl],
+        prompt,
+        aspect_ratio: '9:16',
+        resolution: '1k',
+        quality: 'high',
+        enable_sync_mode: true,
+        enable_base64_output: true,
+      }),
     });
-    const b64 = response.data?.[0]?.b64_json;
-    if (!b64) {
-      return NextResponse.json({ error: 'No image returned from OpenAI' }, { status: 502 });
+
+    if (!wsResponse.ok) {
+      const text = await wsResponse.text();
+      return NextResponse.json(
+        { error: `WaveSpeed HTTP ${wsResponse.status}: ${text.slice(0, 500)}` },
+        { status: 502 },
+      );
     }
-    pngBuf = Buffer.from(b64, 'base64');
+
+    const json = (await wsResponse.json()) as WaveSpeedResponse;
+    if (json.code !== 200 || !json.data) {
+      return NextResponse.json(
+        { error: `WaveSpeed code ${json.code}: ${json.message}` },
+        { status: 502 },
+      );
+    }
+    if (json.data.status === 'failed') {
+      return NextResponse.json(
+        { error: `WaveSpeed task failed: ${json.data.error ?? 'unknown'}` },
+        { status: 502 },
+      );
+    }
+    if (json.data.status !== 'completed' || !json.data.outputs?.[0]) {
+      return NextResponse.json(
+        { error: `WaveSpeed unexpected status: ${json.data.status}` },
+        { status: 502 },
+      );
+    }
+
+    const output = json.data.outputs[0];
+    // With enable_base64_output: true, output is a base64 string (with or without data: prefix).
+    // With enable_base64_output: false, output is a URL — handle both for safety.
+    if (output.startsWith('http://') || output.startsWith('https://')) {
+      const imgRes = await fetch(output);
+      if (!imgRes.ok) {
+        return NextResponse.json({ error: `Failed to fetch image: ${imgRes.status}` }, { status: 502 });
+      }
+      pngBuf = Buffer.from(await imgRes.arrayBuffer());
+    } else {
+      const b64 = output.replace(/^data:[^;]+;base64,/, '');
+      pngBuf = Buffer.from(b64, 'base64');
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `OpenAI error: ${message}` }, { status: 502 });
+    return NextResponse.json({ error: `WaveSpeed error: ${message}` }, { status: 502 });
   }
 
   const meta = {

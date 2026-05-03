@@ -7,7 +7,7 @@ Click **Generate** → server picks believable random values (distance, pace, ti
 ## Stack
 
 - Next.js 16 (App Router) on Vercel Functions
-- OpenAI SDK (`gpt-image-2`, `input_fidelity: high`)
+- WaveSpeed AI gateway → OpenAI `gpt-image-2` edit endpoint
 - Tailwind CSS
 - Bun
 
@@ -28,14 +28,14 @@ Set on Vercel (Project → Settings → Environment Variables):
 
 | Name | Value |
 |------|-------|
-| `OPENAI_API_KEY` | OpenAI key from a verified org (gpt-image-2 requires org verification) |
+| `WAVESPEED_API_KEY` | WaveSpeed AI key (provides gpt-image-2 access without OpenAI org verification) |
 | `GENERATE_PASSWORD` | Long random string — gates the API |
 
 Function `maxDuration` is set to 300s in `app/api/generate/route.ts`. Vercel Hobby plan supports this.
 
 ## Cost
 
-Each generation is one `gpt-image-2` `images.edit` call at `1024x1536`, `quality: high`, `input_fidelity: high`. Roughly **$0.10 – $0.20 per image** depending on token usage.
+Each generation is one WaveSpeed `gpt-image-2/edit` call at `aspect_ratio: 9:16`, `resolution: 1k`, `quality: high`. Pricing per WaveSpeed's published rates.
 
 ## Security
 
