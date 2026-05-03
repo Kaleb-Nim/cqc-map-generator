@@ -1,5 +1,5 @@
 {
-  "name": "run-map-generator",
+  "name": "cqc-map-generator",
   "version": "0.1.0",
   "private": true,
   "scripts": {
