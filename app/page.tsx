@@ -78,7 +78,7 @@ export default function Home() {
     return (
       <main className="min-h-screen flex items-center justify-center p-6 bg-black text-white">
         <form onSubmit={submitPassword} className="w-full max-w-sm space-y-4">
-          <h1 className="text-2xl font-semibold">Run Map Generator</h1>
+          <h1 className="text-2xl font-semibold">fuck this CQC</h1>
           <p className="text-sm text-zinc-400">Access password required.</p>
           <input
             type="password"
@@ -103,7 +103,7 @@ export default function Home() {
     <main className="min-h-screen flex flex-col items-center p-6 bg-black text-white">
       <div className="w-full max-w-md space-y-6 mt-12">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Run Map Generator</h1>
+          <h1 className="text-2xl font-semibold">fuck this CQC</h1>
           <button onClick={clearPassword} className="text-xs text-zinc-500 hover:text-zinc-300">
             sign out
           </button>

@@ -34,10 +34,12 @@ export function pickValues(rng: () => number = Math.random): Values {
   const randFloat = (min: number, max: number) => rng() * (max - min) + min;
   const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-  const hFrom = randInt(5, 22);
-  const mFrom = randInt(0, 59);
+  // screenshot_time_from constrained to 16:30 – 17:30 inclusive
+  const totalMinFrom = randInt(16 * 60 + 30, 17 * 60 + 30);
+  const hFrom = Math.floor(totalMinFrom / 60);
+  const mFrom = totalMinFrom % 60;
   const bumpMin = randInt(1, 5);
-  const totalMinTo = (hFrom * 60 + mFrom + bumpMin) % (24 * 60);
+  const totalMinTo = (totalMinFrom + bumpMin) % (24 * 60);
   const hTo = Math.floor(totalMinTo / 60);
   const mTo = totalMinTo % 60;
 

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Run Map Generator",
+  title: "fuck this CQC",
   description: "Generate randomized workout-screenshot variants via OpenAI GPT Image.",
 };
 
